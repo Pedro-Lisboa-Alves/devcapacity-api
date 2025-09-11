@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "wUmlph83RAE=",
+  "success": true,
+  "projectFilePath": "/Users/pedroalves/Desktop/Tmp Work/devcapacity-api/devcapacity-api/devcapacity-api/devcapacity-api.csproj",
+  "expectedPackageFiles": [
+    "/Users/pedroalves/.nuget/packages/microsoft.aspnetcore.openapi/9.0.5/microsoft.aspnetcore.openapi.9.0.5.nupkg.sha512",
+    "/Users/pedroalves/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
