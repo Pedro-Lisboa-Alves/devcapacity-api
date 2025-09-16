@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using DevCapacityApi.Repositories;
+using DevCapacityApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,8 @@ builder.Services.AddDbContext<DevCapacityApi.Data.AppDbContext>(options =>
 // replace in-memory engineer repo with EF implementation
 builder.Services.AddScoped<DevCapacityApi.Repositories.IEngineerRepository, DevCapacityApi.Repositories.EfEngineerRepository>();
 builder.Services.AddScoped<DevCapacityApi.Services.IEngineerService, DevCapacityApi.Services.EngineerService>();
+builder.Services.AddScoped<ITeamRepository, TeamRepository>();
+builder.Services.AddScoped<ITeamService, TeamService>();
 
 var app = builder.Build();
 
