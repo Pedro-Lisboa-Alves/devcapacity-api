@@ -1,0 +1,6 @@
+@DevCapacityApi_HostAddress = http://localhost:5144
+
+GET {{DevCapacityApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
