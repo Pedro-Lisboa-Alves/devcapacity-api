@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using DevCapacityApi.DTOs;
 using DevCapacityApi.Models;
 using DevCapacityApi.Repositories;
@@ -28,7 +31,14 @@ public class EngineerService : IEngineerService
         if (!string.IsNullOrWhiteSpace(dto.Name) && _repo.GetByName(dto.Name) is not null)
             throw new InvalidOperationException("Engineer name already exists.");
 
-        var entity = MapToEntity(dto);
+        var entity = new Engineer
+        {
+            Name = dto.Name!,
+            Role = dto.Role,
+            DailyCapacity = dto.DailyCapacity,
+            TeamId = dto.TeamId
+        };
+
         var created = _repo.Add(entity);
         return MapToDto(created);
     }
@@ -46,9 +56,13 @@ public class EngineerService : IEngineerService
                 throw new InvalidOperationException("Engineer name already exists.");
         }
 
-        var updated = MapToEntity(dto);
-        updated.Id = id;
-        _repo.Update(updated);
+        // atualizar a entidade existente (inclui TeamId)
+        existing.Name = dto.Name ?? existing.Name;
+        existing.Role = dto.Role;
+        existing.DailyCapacity = dto.DailyCapacity;
+        existing.TeamId = dto.TeamId;
+
+        _repo.Update(existing);
         return true;
     }
 
@@ -61,8 +75,22 @@ public class EngineerService : IEngineerService
     }
 
     private static EngineerDto MapToDto(Engineer e) =>
-        new EngineerDto { Id = e.Id, Name = e.Name, Role = e.Role, DailyCapacity = e.DailyCapacity };
+        new EngineerDto
+        {
+            Id = e.Id,
+            Name = e.Name,
+            Role = e.Role,
+            DailyCapacity = e.DailyCapacity,
+            TeamId = e.TeamId
+        };
 
     private static Engineer MapToEntity(EngineerDto d) =>
-        new Engineer { Id = d.Id, Name = d.Name, Role = d.Role, DailyCapacity = d.DailyCapacity };
+        new Engineer
+        {
+            Id = d.Id,
+            Name = d.Name!,
+            Role = d.Role,
+            DailyCapacity = d.DailyCapacity,
+            TeamId = d.TeamId
+        };
 }

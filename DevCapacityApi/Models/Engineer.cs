@@ -7,7 +7,7 @@ public class Engineer
     public string? Role { get; set; }
     public int DailyCapacity { get; set; }
 
-    // added team relationship
+    // add team FK and navigation
     public int? TeamId { get; set; }
     public Team? Team { get; set; }
 }

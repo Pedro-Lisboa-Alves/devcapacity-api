@@ -6,4 +6,7 @@ public class EngineerDto
     public string? Name { get; set; }
     public string? Role { get; set; }
     public int DailyCapacity { get; set; }
+
+    // added TeamId to transport team association
+    public int? TeamId { get; set; }
 }
