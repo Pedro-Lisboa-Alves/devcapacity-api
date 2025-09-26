@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Status> Statuses { get; set; } = null!;
     public DbSet<EngineerAssignment> EngineerAssignments { get; set; } = null!;
     public DbSet<Tasks> Tasks { get; set; } = null!;
+    public DbSet<Initiatives> Initiatives { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,5 +57,21 @@ public class AppDbContext : DbContext
             .WithOne(a => a.Task)
             .HasForeignKey(a => a.TaskId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Initiatives self reference (parent/children)
+        modelBuilder.Entity<Initiatives>().HasKey(i => i.InitiativeId);
+
+        modelBuilder.Entity<Initiatives>()
+            .HasMany(i => i.Children)
+            .WithOne(i => i.Parent)
+            .HasForeignKey(i => i.ParentInitiative)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Initiatives -> Tasks
+        modelBuilder.Entity<Initiatives>()
+            .HasMany(i => i.Tasks)
+            .WithOne(t => t.InitiativeNav)
+            .HasForeignKey(t => t.Initiative)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

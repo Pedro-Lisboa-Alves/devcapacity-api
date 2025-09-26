@@ -28,6 +28,8 @@ builder.Services.AddScoped<DevCapacityApi.Repositories.IEngineerAssignmentReposi
 builder.Services.AddScoped<DevCapacityApi.Services.IEngineerAssignmentService, DevCapacityApi.Services.EngineerAssignmentService>();
 builder.Services.AddScoped<ITasksRepository, TasksRepository>();
 builder.Services.AddScoped<ITasksService, TasksService>();
+builder.Services.AddScoped<IInitiativesRepository, InitiativesRepository>();
+builder.Services.AddScoped<IInitiativesService, InitiativesService>();
 
 var app = builder.Build();
 
