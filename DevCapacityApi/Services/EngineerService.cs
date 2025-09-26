@@ -77,7 +77,7 @@ public class EngineerService : IEngineerService
     private static EngineerDto MapToDto(Engineer e) =>
         new EngineerDto
         {
-            Id = e.Id,
+            EngineerId = e.Id,
             Name = e.Name,
             Role = e.Role,
             DailyCapacity = e.DailyCapacity,
@@ -87,7 +87,7 @@ public class EngineerService : IEngineerService
     private static Engineer MapToEntity(EngineerDto d) =>
         new Engineer
         {
-            Id = d.Id,
+            Id = d.EngineerId,
             Name = d.Name!,
             Role = d.Role,
             DailyCapacity = d.DailyCapacity,

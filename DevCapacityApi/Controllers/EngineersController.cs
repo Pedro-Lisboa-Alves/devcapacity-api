@@ -31,7 +31,7 @@ public class EngineersController : ControllerBase
         try
         {
             var created = _service.Create(dto);
-            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(Get), new { id = created.EngineerId }, created);
         }
         catch (InvalidOperationException ex)
         {
