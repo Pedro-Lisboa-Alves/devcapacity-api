@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Engineer> Engineers => Set<Engineer>();
     public DbSet<Team> Teams { get; set; } = null!;
+    public DbSet<Status> Statuses { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,5 +36,7 @@ public class AppDbContext : DbContext
             .WithOne(e => e.Team)
             .HasForeignKey(e => e.TeamId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Status>().HasKey(s => s.StatusId);
     }
 }
