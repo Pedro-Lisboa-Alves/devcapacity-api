@@ -7,7 +7,9 @@ public class Engineer
     public string? Role { get; set; }
     public int DailyCapacity { get; set; }
 
-    // add team FK and navigation
     public int? TeamId { get; set; }
     public Team? Team { get; set; }
+
+    // added assignments navigation
+    public ICollection<EngineerAssignment> Assignments { get; set; } = new List<EngineerAssignment>();
 }

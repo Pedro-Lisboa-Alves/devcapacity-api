@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using DevCapacityApi.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace DevCapacityApi.Data;
 
@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<Engineer> Engineers => Set<Engineer>();
     public DbSet<Team> Teams { get; set; } = null!;
     public DbSet<Status> Statuses { get; set; } = null!;
+    public DbSet<EngineerAssignment> EngineerAssignments { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,5 +39,13 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Status>().HasKey(s => s.StatusId);
+
+        modelBuilder.Entity<EngineerAssignment>().HasKey(a => a.AssignmentId);
+
+        modelBuilder.Entity<EngineerAssignment>()
+            .HasOne(a => a.Engineer)
+            .WithMany(e => e.Assignments)
+            .HasForeignKey(a => a.EngineerId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

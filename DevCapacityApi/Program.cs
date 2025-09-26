@@ -24,6 +24,8 @@ builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamService, TeamService>();
 builder.Services.AddScoped<IStatusRepository, StatusRepository>();
 builder.Services.AddScoped<IStatusService, StatusService>();
+builder.Services.AddScoped<DevCapacityApi.Repositories.IEngineerAssignmentRepository, DevCapacityApi.Repositories.EngineerAssignmentRepository>();
+builder.Services.AddScoped<DevCapacityApi.Services.IEngineerAssignmentService, DevCapacityApi.Services.EngineerAssignmentService>();
 
 var app = builder.Build();
 
