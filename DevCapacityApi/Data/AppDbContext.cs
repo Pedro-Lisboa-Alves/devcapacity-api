@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<EngineerAssignment> EngineerAssignments { get; set; } = null!;
     public DbSet<Tasks> Tasks { get; set; } = null!;
     public DbSet<Initiatives> Initiatives { get; set; } = null!;
+    public DbSet<CompanyCalendar> CompanyCalendars { get; set; } = null!;
+    public DbSet<CompanyCalendarNonWorkingDay> CompanyCalendarNonWorkingDays { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,5 +75,15 @@ public class AppDbContext : DbContext
             .WithOne(t => t.InitiativeNav)
             .HasForeignKey(t => t.Initiative)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CompanyCalendar>().HasKey(c => c.CompanyCalendarId);
+
+        modelBuilder.Entity<CompanyCalendarNonWorkingDay>().HasKey(d => d.Id);
+
+        modelBuilder.Entity<CompanyCalendar>()
+            .HasMany(c => c.NonWorkingDays)
+            .WithOne(d => d.CompanyCalendar)
+            .HasForeignKey(d => d.CompanyCalendarId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
