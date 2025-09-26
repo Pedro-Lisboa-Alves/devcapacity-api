@@ -26,6 +26,8 @@ builder.Services.AddScoped<IStatusRepository, StatusRepository>();
 builder.Services.AddScoped<IStatusService, StatusService>();
 builder.Services.AddScoped<DevCapacityApi.Repositories.IEngineerAssignmentRepository, DevCapacityApi.Repositories.EngineerAssignmentRepository>();
 builder.Services.AddScoped<DevCapacityApi.Services.IEngineerAssignmentService, DevCapacityApi.Services.EngineerAssignmentService>();
+builder.Services.AddScoped<ITasksRepository, TasksRepository>();
+builder.Services.AddScoped<ITasksService, TasksService>();
 
 var app = builder.Build();
 

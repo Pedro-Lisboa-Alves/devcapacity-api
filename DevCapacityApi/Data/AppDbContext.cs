@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<Team> Teams { get; set; } = null!;
     public DbSet<Status> Statuses { get; set; } = null!;
     public DbSet<EngineerAssignment> EngineerAssignments { get; set; } = null!;
+    public DbSet<Tasks> Tasks { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,14 @@ public class AppDbContext : DbContext
             .HasOne(a => a.Engineer)
             .WithMany(e => e.Assignments)
             .HasForeignKey(a => a.EngineerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Tasks>().HasKey(t => t.TaskId);
+
+        modelBuilder.Entity<Tasks>()
+            .HasMany(t => t.Assignments)
+            .WithOne(a => a.Task)
+            .HasForeignKey(a => a.TaskId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -10,6 +10,8 @@ public class EngineerAssignment
 
     // external task id (no navigation provided)
     public int TaskId { get; set; }
+    // navigation to Tasks entity (added)
+    public Tasks? Task { get; set; }
 
     // percentage/share (or units) of capacity assigned
     public int CapacityShare { get; set; }
