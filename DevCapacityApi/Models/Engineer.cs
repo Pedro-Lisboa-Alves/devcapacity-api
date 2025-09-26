@@ -10,6 +10,8 @@ public class Engineer
     public int? TeamId { get; set; }
     public Team? Team { get; set; }
 
-    // added assignments navigation
     public ICollection<EngineerAssignment> Assignments { get; set; } = new List<EngineerAssignment>();
+
+    // optional navigation: an engineer can have a calendar
+    public EngineerCalendar? Calendar { get; set; }
 }

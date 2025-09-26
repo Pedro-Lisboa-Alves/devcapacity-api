@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<Initiatives> Initiatives { get; set; } = null!;
     public DbSet<CompanyCalendar> CompanyCalendars { get; set; } = null!;
     public DbSet<CompanyCalendarNonWorkingDay> CompanyCalendarNonWorkingDays { get; set; } = null!;
+    public DbSet<EngineerCalendar> EngineerCalendars { get; set; } = null!;
+    public DbSet<EngineerCalendarVacation> EngineerCalendarVacations { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +86,21 @@ public class AppDbContext : DbContext
             .HasMany(c => c.NonWorkingDays)
             .WithOne(d => d.CompanyCalendar)
             .HasForeignKey(d => d.CompanyCalendarId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EngineerCalendar>().HasKey(c => c.EngineerCalendarId);
+        modelBuilder.Entity<EngineerCalendarVacation>().HasKey(v => v.Id);
+
+        modelBuilder.Entity<EngineerCalendar>()
+            .HasOne(c => c.Engineer)
+            .WithOne(e => e.Calendar)
+            .HasForeignKey<EngineerCalendar>(c => c.EngineerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EngineerCalendar>()
+            .HasMany(c => c.Vacations)
+            .WithOne(v => v.EngineerCalendar)
+            .HasForeignKey(v => v.EngineerCalendarId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

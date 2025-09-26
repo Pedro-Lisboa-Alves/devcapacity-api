@@ -32,6 +32,8 @@ builder.Services.AddScoped<IInitiativesRepository, InitiativesRepository>();
 builder.Services.AddScoped<IInitiativesService, InitiativesService>();
 builder.Services.AddScoped<ICompanyCalendarRepository, CompanyCalendarRepository>();
 builder.Services.AddScoped<ICompanyCalendarService, CompanyCalendarService>();
+builder.Services.AddScoped<IEngineerCalendarRepository, EngineerCalendarRepository>();
+builder.Services.AddScoped<IEngineerCalendarService, EngineerCalendarService>();
 
 var app = builder.Build();
 
