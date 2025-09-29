@@ -5,7 +5,7 @@ using DevCapacityApi.Services;
 namespace DevCapacityApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("[controller]")]
 public class StatusController : ControllerBase
 {
     private readonly IStatusService _svc;

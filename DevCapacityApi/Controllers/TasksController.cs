@@ -5,7 +5,7 @@ using DevCapacityApi.Services;
 namespace DevCapacityApi.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("[controller]")]
 public class TasksController : ControllerBase
 {
     private readonly ITasksService _svc;
