@@ -25,6 +25,10 @@ public class EngineerAssignmentController : ControllerBase
     [HttpGet("engineer/{engineerId:int}")]
     public IActionResult GetByEngineer(int engineerId) => Ok(_svc.GetByEngineerId(engineerId));
 
+    // novo endpoint: obter assignments por TaskId
+    [HttpGet("task/{taskId:int}")]
+    public IActionResult GetByTask(int taskId) => Ok(_svc.GetByTaskId(taskId));
+
     [HttpPost]
     public IActionResult Create(CreateUpdateEngineerAssignmentDto dto)
     {

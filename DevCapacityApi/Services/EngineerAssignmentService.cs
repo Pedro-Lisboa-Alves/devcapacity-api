@@ -48,6 +48,10 @@ public class EngineerAssignmentService : IEngineerAssignmentService
     public IEnumerable<EngineerAssignmentDto> GetByEngineerId(int engineerId) =>
         _repo.GetByEngineerId(engineerId).Select(MapToDto);
 
+    // novo: obter por TaskId
+    public IEnumerable<EngineerAssignmentDto> GetByTaskId(int taskId) =>
+        _repo.GetByTaskId(taskId).Select(MapToDto);
+
     public bool Update(int id, CreateUpdateEngineerAssignmentDto dto)
     {
         var existing = _repo.GetById(id);

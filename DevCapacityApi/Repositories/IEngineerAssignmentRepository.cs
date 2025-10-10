@@ -11,4 +11,5 @@ public interface IEngineerAssignmentRepository
     EngineerAssignment Add(EngineerAssignment a);
     bool Update(EngineerAssignment a);
     bool Delete(int id);
+    IEnumerable<EngineerAssignment> GetByTaskId(int taskId);
 }

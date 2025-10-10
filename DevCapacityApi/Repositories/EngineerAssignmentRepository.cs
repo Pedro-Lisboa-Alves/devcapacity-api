@@ -20,6 +20,9 @@ public class EngineerAssignmentRepository : IEngineerAssignmentRepository
     public IEnumerable<EngineerAssignment> GetByEngineerId(int engineerId) =>
         _db.Set<EngineerAssignment>().Where(a => a.EngineerId == engineerId).AsNoTracking().ToList();
 
+    public IEnumerable<EngineerAssignment> GetByTaskId(int taskId) =>
+        _db.Set<EngineerAssignment>().Where(a => a.TaskId == taskId).AsNoTracking().ToList();
+
     public EngineerAssignment Add(EngineerAssignment a)
     {
         _db.Set<EngineerAssignment>().Add(a);

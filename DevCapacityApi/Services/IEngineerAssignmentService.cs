@@ -11,4 +11,5 @@ public interface IEngineerAssignmentService
     IEnumerable<EngineerAssignmentDto> GetByEngineerId(int engineerId);
     bool Update(int id, CreateUpdateEngineerAssignmentDto dto);
     bool Delete(int id);
+    IEnumerable<EngineerAssignmentDto> GetByTaskId(int taskId);
 }
