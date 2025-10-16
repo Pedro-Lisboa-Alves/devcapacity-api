@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using DevCapacityApi.Repositories;
 using DevCapacityApi.Services;
+using Confluent.Kafka;
+using Confluent.SchemaRegistry;
+using DevCapacityApi.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +36,33 @@ builder.Services.AddScoped<IInitiativesService, InitiativesService>();
 builder.Services.AddScoped<ICompanyCalendarRepository, CompanyCalendarRepository>();
 builder.Services.AddScoped<ICompanyCalendarService, CompanyCalendarService>();
 builder.Services.AddScoped<IEngineerCalendarRepository, EngineerCalendarRepository>();
-builder.Services.AddScoped<IEngineerCalendarService, EngineerCalendarService>();
+
+// Kafka / Schema Registry configuration and producer registration
+builder.Services.AddSingleton(sp =>
+{
+    // read from configuration; defaults provided for local testing
+    return new ProducerConfig
+    {
+        BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092"
+    };
+});
+
+builder.Services.AddSingleton(sp =>
+{
+    return new SchemaRegistryConfig
+    {
+        Url = builder.Configuration["SchemaRegistry:Url"] ?? "http://localhost:8081"
+    };
+});
+
+var assignmentTopic = builder.Configuration["Kafka:AssignmentTopic"] ?? "engineer-assignment-events";
+
+builder.Services.AddSingleton<IKafkaAssignmentProducer>(sp =>
+{
+    var prodCfg = sp.GetRequiredService<ProducerConfig>();
+    var regCfg = sp.GetRequiredService<SchemaRegistryConfig>();
+    return new KafkaAssignmentProducer(prodCfg, regCfg, assignmentTopic);
+});
 
 var app = builder.Build();
 

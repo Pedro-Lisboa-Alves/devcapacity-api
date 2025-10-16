@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using DevCapacityApi.DTOs;
 using DevCapacityApi.Models;
 using DevCapacityApi.Repositories;
+using DevCapacityApi.Messaging;
+using Avro.Generic;
+using Confluent.SchemaRegistry.Serdes;
 
 namespace DevCapacityApi.Services;
 
@@ -11,11 +15,13 @@ public class EngineerAssignmentService : IEngineerAssignmentService
 {
     private readonly IEngineerAssignmentRepository _repo;
     private readonly IEngineerRepository _engineerRepo;
+    private readonly IKafkaAssignmentProducer _producer;
 
-    public EngineerAssignmentService(IEngineerAssignmentRepository repo, IEngineerRepository engineerRepo)
+    public EngineerAssignmentService(IEngineerAssignmentRepository repo, IEngineerRepository engineerRepo, IKafkaAssignmentProducer producer)
     {
         _repo = repo;
         _engineerRepo = engineerRepo;
+        _producer = producer;
     }
 
     public EngineerAssignmentDto Create(CreateUpdateEngineerAssignmentDto dto)
@@ -34,6 +40,10 @@ public class EngineerAssignmentService : IEngineerAssignmentService
         };
 
         var created = _repo.Add(entity);
+
+        // enviar evento Avro para Kafka (fire-and-forget via Task)
+        _ = _producer.ProduceAssignmentAsync(created, "created");
+
         return MapToDto(created);
     }
 
@@ -70,7 +80,19 @@ public class EngineerAssignmentService : IEngineerAssignmentService
         return _repo.Update(existing);
     }
 
-    public bool Delete(int id) => _repo.Delete(id);
+    public bool Delete(int id)
+    {
+        // load entity to include data in event
+        var existing = _repo.GetById(id);
+        if (existing == null) return false;
+
+        var ok = _repo.Delete(id);
+        if (ok)
+        {
+            _ = _producer.ProduceAssignmentAsync(existing, "deleted");
+        }
+        return ok;
+    }
 
     private static EngineerAssignmentDto MapToDto(EngineerAssignment a) =>
         new EngineerAssignmentDto
