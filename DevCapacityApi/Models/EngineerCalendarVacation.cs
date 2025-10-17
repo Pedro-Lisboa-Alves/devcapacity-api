@@ -1,6 +1,13 @@
 namespace DevCapacityApi.Models;
 
-public class EngineerCalendarVacation
+public enum EngineerCalendarDayType
+{
+    Available,
+    Vacations,
+    Absence
+}
+
+public class EngineerCalendarDay
 {
     public int Id { get; set; }
 
@@ -9,4 +16,6 @@ public class EngineerCalendarVacation
 
     // store date only (use DateTime.Date for comparisons)
     public DateTime Date { get; set; }
+
+    public EngineerCalendarDayType Type { get; set; }
 }

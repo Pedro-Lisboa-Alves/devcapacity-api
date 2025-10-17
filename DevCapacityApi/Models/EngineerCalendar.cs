@@ -9,7 +9,7 @@ public class EngineerCalendar
     public Engineer? Engineer { get; set; }
 
     // vacation dates
-    public ICollection<EngineerCalendarVacation> Vacations { get; set; } = new List<EngineerCalendarVacation>();
+    public ICollection<EngineerCalendarDay> Vacations { get; set; } = new List<EngineerCalendarDay>();
 
     // método pedido
     public bool IsVacation(DateTime date)

@@ -27,7 +27,7 @@ public class EngineerCalendarService : IEngineerCalendarService
         var entity = new EngineerCalendar
         {
             EngineerId = dto.EngineerId,
-            Vacations = dto.Vacations.Select(d => new EngineerCalendarVacation { Date = d.Date }).ToList()
+            Vacations = dto.Vacations.Select(d => new EngineerCalendarDay { Date = d.Date }).ToList()
         };
 
         var created = _repo.Add(entity);
@@ -58,7 +58,7 @@ public class EngineerCalendarService : IEngineerCalendarService
         if (eng is null) throw new InvalidOperationException("Engineer not found.");
 
         existing.EngineerId = dto.EngineerId;
-        existing.Vacations = dto.Vacations.Select(d => new EngineerCalendarVacation { EngineerCalendarId = id, Date = d.Date }).ToList();
+        existing.Vacations = dto.Vacations.Select(d => new EngineerCalendarDay { EngineerCalendarId = id, Date = d.Date }).ToList();
 
         return _repo.Update(existing);
     }

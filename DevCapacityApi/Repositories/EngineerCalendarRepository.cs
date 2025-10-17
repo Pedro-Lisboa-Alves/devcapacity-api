@@ -35,7 +35,7 @@ public class EngineerCalendarRepository : IEngineerCalendarRepository
         existing.EngineerId = c.EngineerId;
 
         // replace vacations: remove old then add new
-        _db.Set<EngineerCalendarVacation>().RemoveRange(existing.Vacations);
+        _db.Set<EngineerCalendarDay>().RemoveRange(existing.Vacations);
         existing.Vacations = c.Vacations;
         _db.SaveChanges();
         return true;

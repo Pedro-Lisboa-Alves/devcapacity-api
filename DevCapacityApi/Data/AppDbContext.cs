@@ -16,7 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<CompanyCalendar> CompanyCalendars { get; set; } = null!;
     public DbSet<CompanyCalendarNonWorkingDay> CompanyCalendarNonWorkingDays { get; set; } = null!;
     public DbSet<EngineerCalendar> EngineerCalendars { get; set; } = null!;
-    public DbSet<EngineerCalendarVacation> EngineerCalendarVacations { get; set; } = null!;
+    public DbSet<EngineerCalendarDay> EngineerCalendarDays { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,7 +89,7 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<EngineerCalendar>().HasKey(c => c.EngineerCalendarId);
-        modelBuilder.Entity<EngineerCalendarVacation>().HasKey(v => v.Id);
+        modelBuilder.Entity<EngineerCalendarDay>().HasKey(v => v.Id);
 
         modelBuilder.Entity<EngineerCalendar>()
             .HasOne(c => c.Engineer)
