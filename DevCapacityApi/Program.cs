@@ -42,6 +42,7 @@ builder.Services.AddScoped<IInitiativesService, InitiativesService>();
 builder.Services.AddScoped<ICompanyCalendarRepository, CompanyCalendarRepository>();
 builder.Services.AddScoped<ICompanyCalendarService, CompanyCalendarService>();
 builder.Services.AddScoped<IEngineerCalendarRepository, EngineerCalendarRepository>();
+builder.Services.AddScoped<IEngineerCalendarService, EngineerCalendarService>();
 
 // Kafka / Schema Registry configuration and producer registration
 builder.Services.AddSingleton(sp =>

@@ -16,12 +16,21 @@ public class EngineerAssignmentService : IEngineerAssignmentService
     private readonly IEngineerAssignmentRepository _repo;
     private readonly IEngineerRepository _engineerRepo;
     private readonly IKafkaAssignmentProducer _producer;
+    private readonly IEngineerCalendarRepository _engineerCalendarRepo;
+    private readonly ICompanyCalendarRepository _companyCalendarRepo;
 
-    public EngineerAssignmentService(IEngineerAssignmentRepository repo, IEngineerRepository engineerRepo, IKafkaAssignmentProducer producer)
+    public EngineerAssignmentService(
+        IEngineerAssignmentRepository repo,
+        IEngineerRepository engineerRepo,
+        IKafkaAssignmentProducer producer,
+        IEngineerCalendarRepository engineerCalendarRepo,
+        ICompanyCalendarRepository companyCalendarRepo)
     {
         _repo = repo;
         _engineerRepo = engineerRepo;
         _producer = producer;
+        _engineerCalendarRepo = engineerCalendarRepo;
+        _companyCalendarRepo = companyCalendarRepo;
     }
 
     public EngineerAssignmentDto Create(CreateUpdateEngineerAssignmentDto dto)
@@ -29,6 +38,17 @@ public class EngineerAssignmentService : IEngineerAssignmentService
         // validate engineer exists
         var eng = _engineerRepo.GetById(dto.EngineerId);
         if (eng is null) throw new InvalidOperationException("Engineer not found.");
+
+        // ensure engineer calendar days exist for next 3 years
+        try
+        {
+            EnsureEngineerCalendarDays(dto.EngineerId);
+        }
+        catch (Exception ex)
+        {
+            // non-fatal: log/ignore or rethrow depending on policy
+            // here we swallow to not block assignment creation; in production prefer logging
+        }
 
         var entity = new EngineerAssignment
         {
@@ -71,6 +91,16 @@ public class EngineerAssignmentService : IEngineerAssignmentService
         var eng = _engineerRepo.GetById(dto.EngineerId);
         if (eng is null) throw new InvalidOperationException("Engineer not found.");
 
+        // ensure calendar days exist when assignment's engineer may change / be updated
+        try
+        {
+            EnsureEngineerCalendarDays(dto.EngineerId);
+        }
+        catch
+        {
+            // swallow as above
+        }
+
         existing.EngineerId = dto.EngineerId;
         existing.TaskId = dto.TaskId;
         existing.CapacityShare = dto.CapacityShare;
@@ -104,4 +134,86 @@ public class EngineerAssignmentService : IEngineerAssignmentService
             StartDate = a.StartDate,
             EndDate = a.EndDate
         };
+
+    // --- new helper to generate calendar days for an engineer for 3 years ---
+    private void EnsureEngineerCalendarDays(int engineerId)
+    {
+        // get or create calendar for engineer
+        var calendar = _engineerCalendarRepo.GetByEngineerId(engineerId);
+        var now = DateTime.Today;
+        var end = now.AddYears(3);
+
+        if (calendar == null)
+        {
+            calendar = new EngineerCalendar
+            {
+                EngineerId = engineerId,
+                CalendarDays = new List<EngineerCalendarDay>()
+            };
+            calendar = _engineerCalendarRepo.Add(calendar);
+        }
+        else
+        {
+            // ensure collection is loaded
+            calendar.CalendarDays ??= new List<EngineerCalendarDay>();
+        }
+
+        // build set of existing dates for quick lookup
+        var existingDates = new HashSet<DateTime>(calendar.CalendarDays.Select(d => d.Date.Date));
+
+        // get company calendar (if any). pick first available or null.
+        CompanyCalendar? companyCal = null;
+        try
+        {
+            companyCal = _companyCalendarRepo.GetAll().FirstOrDefault();
+        }
+        catch
+        {
+            companyCal = null;
+        }
+
+        var toAdd = new List<EngineerCalendarDay>();
+
+        for (var date = now; date < end; date = date.AddDays(1))
+        {
+            if (existingDates.Contains(date)) continue;
+
+            // determine type: Available if company says working day; otherwise Vacations
+            var type = EngineerCalendarDayType.Weekends;
+            try
+            {
+                if (companyCal != null)
+                {
+                    type = companyCal.IsCompanyWorkingDay(date) ? EngineerCalendarDayType.Available : EngineerCalendarDayType.Weekends;
+                }
+                else
+                {
+                    // fallback: Weekdays Available, weekends Vacations
+                    type = (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                        ? EngineerCalendarDayType.Weekends
+                        : EngineerCalendarDayType.Available;
+                }
+            }
+            catch
+            {
+                type = (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                        ? EngineerCalendarDayType.Weekends
+                        : EngineerCalendarDayType.Available;
+            }
+
+            toAdd.Add(new EngineerCalendarDay
+            {
+                EngineerCalendarId = calendar.EngineerCalendarId,
+                Date = date,
+                Type = type
+            });
+        }
+
+        if (toAdd.Count > 0)
+        {
+            // append and persist
+            foreach (var d in toAdd) calendar.CalendarDays.Add(d);
+            _engineerCalendarRepo.Update(calendar);
+        }
+    }
 }

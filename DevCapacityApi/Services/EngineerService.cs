@@ -10,19 +10,24 @@ namespace DevCapacityApi.Services;
 public class EngineerService : IEngineerService
 {
     private readonly IEngineerRepository _repo;
+    private readonly IEngineerCalendarService _calendarService;
 
-    public EngineerService(IEngineerRepository repo)
+    public EngineerService(IEngineerRepository repo, IEngineerCalendarService calendarService)
     {
         _repo = repo;
+        _calendarService = calendarService;
     }
 
-    public IEnumerable<EngineerDto> GetAll() =>
-        _repo.GetAll().Select(MapToDto);
+    public IEnumerable<EngineerDto> GetAll()
+    {
+        var items = _repo.GetAll();
+        return items.Select(MapToDto);
+    }
 
     public EngineerDto? GetById(int id)
     {
         var e = _repo.GetById(id);
-        return e is null ? null : MapToDto(e);
+        return e == null ? null : MapToDto(e);
     }
 
     public EngineerDto Create(EngineerDto dto)
@@ -40,6 +45,30 @@ public class EngineerService : IEngineerService
         };
 
         var created = _repo.Add(entity);
+
+        // if calendar present in DTO, create it
+        if (dto.EngineerCalendar is not null)
+        {
+            var createCalDto = new CreateUpdateEngineerCalendarDto
+            {
+                EngineerId = created.Id,
+                Days = dto.EngineerCalendar.Days?.Select(d => new CreateUpdateEngineerCalendarDayDto
+                {
+                    Date = d.Date.Date,
+                    Type = d.Type
+                }) ?? Array.Empty<CreateUpdateEngineerCalendarDayDto>()
+            };
+
+            try
+            {
+                _calendarService.Create(createCalDto);
+            }
+            catch
+            {
+                // swallow or log depending on policy; do not block engineer creation
+            }
+        }
+
         return MapToDto(created);
     }
 
@@ -63,6 +92,38 @@ public class EngineerService : IEngineerService
         existing.TeamId = dto.TeamId;
 
         _repo.Update(existing);
+
+        // if calendar payload provided, create or update calendar accordingly
+        if (dto.EngineerCalendar is not null)
+        {
+            try
+            {
+                var existingCal = _calendarService.GetByEngineerId(existing.Id);
+                var calDto = new CreateUpdateEngineerCalendarDto
+                {
+                    EngineerId = existing.Id,
+                    Days = dto.EngineerCalendar.Days?.Select(d => new CreateUpdateEngineerCalendarDayDto
+                    {
+                        Date = d.Date.Date,
+                        Type = d.Type
+                    }) ?? Array.Empty<CreateUpdateEngineerCalendarDayDto>()
+                };
+
+                if (existingCal is null)
+                {
+                    _calendarService.Create(calDto);
+                }
+                else
+                {
+                    _calendarService.Update(existingCal.EngineerCalendarId, calDto);
+                }
+            }
+            catch
+            {
+                // swallow or log depending on policy
+            }
+        }
+
         return true;
     }
 
@@ -74,8 +135,9 @@ public class EngineerService : IEngineerService
         return true;
     }
 
-    private static EngineerDto MapToDto(Engineer e) =>
-        new EngineerDto
+    private EngineerDto MapToDto(Engineer e)
+    {
+        var dto = new EngineerDto
         {
             EngineerId = e.Id,
             Name = e.Name,
@@ -84,13 +146,10 @@ public class EngineerService : IEngineerService
             TeamId = e.TeamId
         };
 
-    private static Engineer MapToEntity(EngineerDto d) =>
-        new Engineer
-        {
-            Id = d.EngineerId,
-            Name = d.Name!,
-            Role = d.Role,
-            DailyCapacity = d.DailyCapacity,
-            TeamId = d.TeamId
-        };
+        // attach calendar if exists
+        var cal = _calendarService.GetByEngineerId(e.Id);
+        if (cal != null) dto.EngineerCalendar = cal;
+
+        return dto;
+    }
 }

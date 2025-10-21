@@ -98,7 +98,7 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<EngineerCalendar>()
-            .HasMany(c => c.Vacations)
+            .HasMany(c => c.CalendarDays)
             .WithOne(v => v.EngineerCalendar)
             .HasForeignKey(v => v.EngineerCalendarId)
             .OnDelete(DeleteBehavior.Cascade);

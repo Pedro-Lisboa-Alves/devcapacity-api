@@ -1,31 +1,29 @@
 using Microsoft.AspNetCore.Mvc;
 using DevCapacityApi.DTOs;
 using DevCapacityApi.Services;
+using DevCapacityApi.Models;
 
 namespace DevCapacityApi.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class EngineerCalendarController : ControllerBase
 {
-    private readonly IEngineerCalendarService _svc;
-    public EngineerCalendarController(IEngineerCalendarService svc) => _svc = svc;
-
-    [HttpGet]
-    public IActionResult GetAll() => Ok(_svc.GetAll());
-
-    [HttpGet("{id:int}")]
-    public IActionResult Get(int id)
-    {
-        var c = _svc.GetById(id);
-        if (c == null) return NotFound();
-        return Ok(c);
-    }
+    private readonly IEngineerCalendarService _calendarService;
+    public EngineerCalendarController(IEngineerCalendarService calendarService) => _calendarService = calendarService;
 
     [HttpGet("engineer/{engineerId:int}")]
     public IActionResult GetByEngineer(int engineerId)
     {
-        var c = _svc.GetByEngineerId(engineerId);
+        var c = _calendarService.GetByEngineerId(engineerId);
+        if (c == null) return NotFound();
+        return Ok(c);
+    }
+
+    [HttpGet("{id:int}")]
+    public IActionResult Get(int id)
+    {
+        var c = _calendarService.GetById(id);
         if (c == null) return NotFound();
         return Ok(c);
     }
@@ -33,14 +31,14 @@ public class EngineerCalendarController : ControllerBase
     [HttpPost]
     public IActionResult Create(CreateUpdateEngineerCalendarDto dto)
     {
-        var created = _svc.Create(dto);
+        var created = _calendarService.Create(dto);
         return CreatedAtAction(nameof(Get), new { id = created.EngineerCalendarId }, created);
     }
 
     [HttpPut("{id:int}")]
     public IActionResult Update(int id, CreateUpdateEngineerCalendarDto dto)
     {
-        var ok = _svc.Update(id, dto);
+        var ok = _calendarService.Update(id, dto);
         if (!ok) return NotFound();
         return NoContent();
     }
@@ -48,7 +46,7 @@ public class EngineerCalendarController : ControllerBase
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        var ok = _svc.Delete(id);
+        var ok = _calendarService.Delete(id);
         if (!ok) return NotFound();
         return NoContent();
     }
@@ -58,7 +56,7 @@ public class EngineerCalendarController : ControllerBase
     {
         try
         {
-            var result = _svc.IsVacation(id, date);
+            var result = _calendarService.IsVacation(id, date);
             return Ok(new { date = date.Date, isVacation = result });
         }
         catch (InvalidOperationException)

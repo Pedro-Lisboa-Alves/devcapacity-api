@@ -1,7 +1,13 @@
 namespace DevCapacityApi.DTOs;
 
+public class CreateUpdateEngineerCalendarDayDto
+{
+    public DateTime Date { get; set; }
+    public string? Type { get; set; } // "Available" | "Vacations" | "Absence"
+}
+
 public class CreateUpdateEngineerCalendarDto
 {
     public int EngineerId { get; set; }
-    public IEnumerable<DateTime> Vacations { get; set; } = Array.Empty<DateTime>();
+    public IEnumerable<CreateUpdateEngineerCalendarDayDto> Days { get; set; } = Array.Empty<CreateUpdateEngineerCalendarDayDto>();
 }

@@ -9,4 +9,7 @@ public class EngineerDto
 
     // added TeamId to transport team association
     public int? TeamId { get; set; }
+
+    // calendar (returned on GET). Nullable when engineer has no calendar.
+    public EngineerCalendarDto? EngineerCalendar { get; set; }
 }

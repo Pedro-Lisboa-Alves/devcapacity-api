@@ -12,13 +12,13 @@ public class EngineerCalendarRepository : IEngineerCalendarRepository
     public EngineerCalendarRepository(AppDbContext db) => _db = db;
 
     public IEnumerable<EngineerCalendar> GetAll() =>
-        _db.Set<EngineerCalendar>().Include(c => c.Vacations).AsNoTracking().ToList();
+        _db.Set<EngineerCalendar>().Include(c => c.CalendarDays).AsNoTracking().ToList();
 
     public EngineerCalendar? GetById(int id) =>
-        _db.Set<EngineerCalendar>().Include(c => c.Vacations).FirstOrDefault(c => c.EngineerCalendarId == id);
+        _db.Set<EngineerCalendar>().Include(c => c.CalendarDays).FirstOrDefault(c => c.EngineerCalendarId == id);
 
     public EngineerCalendar? GetByEngineerId(int engineerId) =>
-        _db.Set<EngineerCalendar>().Include(c => c.Vacations).FirstOrDefault(c => c.EngineerId == engineerId);
+        _db.Set<EngineerCalendar>().Include(c => c.CalendarDays).FirstOrDefault(c => c.EngineerId == engineerId);
 
     public EngineerCalendar Add(EngineerCalendar c)
     {
@@ -29,14 +29,16 @@ public class EngineerCalendarRepository : IEngineerCalendarRepository
 
     public bool Update(EngineerCalendar c)
     {
-        var existing = _db.Set<EngineerCalendar>().Include(x => x.Vacations).FirstOrDefault(x => x.EngineerCalendarId == c.EngineerCalendarId);
+        var existing = _db.Set<EngineerCalendar>().Include(x => x.CalendarDays).FirstOrDefault(x => x.EngineerCalendarId == c.EngineerCalendarId);
         if (existing == null) return false;
 
-        existing.EngineerId = c.EngineerId;
+        // replace vacation/day entries
+        _db.Set<EngineerCalendarDay>().RemoveRange(existing.CalendarDays);
+        _db.SaveChanges();
 
-        // replace vacations: remove old then add new
-        _db.Set<EngineerCalendarDay>().RemoveRange(existing.Vacations);
-        existing.Vacations = c.Vacations;
+        // attach new days
+        existing.CalendarDays = c.CalendarDays;
+        _db.Update(existing);
         _db.SaveChanges();
         return true;
     }

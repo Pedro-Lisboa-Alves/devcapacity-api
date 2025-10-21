@@ -4,7 +4,9 @@ public enum EngineerCalendarDayType
 {
     Available,
     Vacations,
-    Absence
+    Weekends,
+    Absence,
+    Assigned
 }
 
 public class EngineerCalendarDay
