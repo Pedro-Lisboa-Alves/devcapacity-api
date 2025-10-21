@@ -12,4 +12,7 @@ public class TasksDto
 
     // assignment ids
     public IEnumerable<int> AssignmentIds { get; set; } = Array.Empty<int>();
+
+    // calculated field returned on GETs only
+    public int UnassignedPDs { get; set; }
 }

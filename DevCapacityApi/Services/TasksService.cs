@@ -70,6 +70,7 @@ public class TasksService : ITasksService
             PDs = t.PDs,
             StartDate = t.StartDate,
             EndDate = t.EndDate,
-            AssignmentIds = t.Assignments?.Select(a => a.AssignmentId) ?? Enumerable.Empty<int>()
+            AssignmentIds = t.Assignments?.Select(a => a.AssignmentId) ?? Enumerable.Empty<int>(),
+            UnassignedPDs = t.UnassignedPDs
         };
 }

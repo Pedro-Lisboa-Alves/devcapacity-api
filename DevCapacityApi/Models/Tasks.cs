@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+
 namespace DevCapacityApi.Models;
 
 public class Tasks
@@ -21,4 +24,9 @@ public class Tasks
 
     // assignments for this task
     public ICollection<EngineerAssignment> Assignments { get; set; } = new List<EngineerAssignment>();
+
+    // calculated property: PDs not assigned to engineers.
+    // Not mapped to the database; computed from PDs minus sum of assignment shares.
+    [NotMapped]
+    public int UnassignedPDs => Math.Max(0, PDs - (Assignments?.Sum(a => a.CapacityShare) ?? 0));
 }

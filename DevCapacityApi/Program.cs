@@ -15,8 +15,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // register DbContext (SQLite)
+//builder.Services.AddDbContext<DevCapacityApi.Data.AppDbContext>(options =>
+    //options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddDbContext<DevCapacityApi.Data.AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var cs = builder.Configuration.GetConnectionString("DefaultConnection");
+    options.UseSqlite(cs);
+});
 
 // DI registrations
 
@@ -40,19 +46,16 @@ builder.Services.AddScoped<IEngineerCalendarRepository, EngineerCalendarReposito
 // Kafka / Schema Registry configuration and producer registration
 builder.Services.AddSingleton(sp =>
 {
-    // read from configuration; defaults provided for local testing
     return new ProducerConfig
     {
         BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092"
     };
 });
 
-builder.Services.AddSingleton(sp =>
+// MANTER apenas UM registo de SchemaRegistryConfig
+builder.Services.AddSingleton(sp => new SchemaRegistryConfig
 {
-    return new SchemaRegistryConfig
-    {
-        Url = builder.Configuration["SchemaRegistry:Url"] ?? "http://localhost:8081"
-    };
+    Url = builder.Configuration["SchemaRegistry:Url"] ?? "http://localhost:8081"
 });
 
 var assignmentTopic = builder.Configuration["Kafka:AssignmentTopic"] ?? "engineer-assignment-events";
@@ -64,13 +67,55 @@ builder.Services.AddSingleton<IKafkaAssignmentProducer>(sp =>
     return new KafkaAssignmentProducer(prodCfg, regCfg, assignmentTopic);
 });
 
+// Kafka consumer config
+builder.Services.AddSingleton(sp => new ConsumerConfig
+{
+    BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092",
+    GroupId = builder.Configuration["Kafka:AssignmentConsumerGroup"] ?? "assignment-consumer-group",
+    AutoOffsetReset = AutoOffsetReset.Earliest,
+    EnableAutoCommit = false
+});
+
+// register processor implementation
+builder.Services.AddScoped<IEngineerAssignmentProcessor, DefaultEngineerAssignmentProcessor>();
+
+
+// register background consumer
+builder.Services.AddSingleton<IHostedService>(sp =>
+   new KafkaAssignmentConsumer(
+        sp.GetRequiredService<ConsumerConfig>(),
+        sp.GetRequiredService<SchemaRegistryConfig>(),
+        sp.GetRequiredService<IServiceScopeFactory>(),
+        sp.GetRequiredService<ILogger<KafkaAssignmentConsumer>>(),
+        assignmentTopic // <- vem do appsettings
+    )
+);
+
 var app = builder.Build();
 
 // aplicar migrations pendentes automaticamente
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<DevCapacityApi.Data.AppDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<DevCapacityApi.Data.AppDbContext>();
+        db.Database.Migrate();
+
+        var conn = db.Database.GetDbConnection();
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "PRAGMA journal_mode=WAL;";
+        var mode = cmd.ExecuteScalar()?.ToString();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("SQLite journal_mode set to {Mode}", mode);
+        
+    }
+    catch (Exception ex)
+    {
+        // log and continue (ou rethrow se preferires)
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Erro ao aplicar migrations automaticamente.");
+    }
 }
 
 // Configure the HTTP request pipeline.
