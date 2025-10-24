@@ -7,6 +7,10 @@ public class TasksDto
     public int Initiative { get; set; }
     public int Status { get; set; }
     public int PDs { get; set; }
+
+    // new property exposed on GET
+    public int MaxResources { get; set; }
+
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 

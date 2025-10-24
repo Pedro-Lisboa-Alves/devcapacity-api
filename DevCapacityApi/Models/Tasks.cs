@@ -19,6 +19,9 @@ public class Tasks
 
     public int PDs { get; set; }
 
+    // new property
+    public int MaxResources { get; set; }
+
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 

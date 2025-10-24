@@ -6,6 +6,10 @@ public class CreateUpdateTasksDto
     public int Initiative { get; set; }
     public int Status { get; set; }
     public int PDs { get; set; }
+
+    // new property accepted on POST/PUT
+    public int MaxResources { get; set; }
+
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 }

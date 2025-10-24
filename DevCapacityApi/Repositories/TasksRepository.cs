@@ -17,36 +17,40 @@ public class TasksRepository : ITasksRepository
     public Tasks? GetById(int id) =>
         _db.Set<Tasks>().Include(t => t.Assignments).FirstOrDefault(t => t.TaskId == id);
 
-    public Tasks? GetByName(string name) =>
-        _db.Set<Tasks>().FirstOrDefault(t => t.Name == name);
-
-    public Tasks Add(Tasks task)
+    public Tasks Add(Tasks t)
     {
-        _db.Set<Tasks>().Add(task);
+        _db.Set<Tasks>().Add(t);
         _db.SaveChanges();
-        return task;
+        return t;
     }
 
-    public bool Update(Tasks task)
+    public bool Update(Tasks t)
     {
-        var existing = _db.Set<Tasks>().Find(task.TaskId);
+        var existing = _db.Set<Tasks>().Find(t.TaskId);
         if (existing == null) return false;
-        existing.Name = task.Name;
-        existing.Initiative = task.Initiative;
-        existing.Status = task.Status;
-        existing.PDs = task.PDs;
-        existing.StartDate = task.StartDate;
-        existing.EndDate = task.EndDate;
+
+        existing.Name = t.Name;
+        existing.Initiative = t.Initiative;
+        existing.Status = t.Status;
+        existing.PDs = t.PDs;
+        existing.MaxResources = t.MaxResources;
+        existing.StartDate = t.StartDate;
+        existing.EndDate = t.EndDate;
+
+        _db.Update(existing);
         _db.SaveChanges();
         return true;
     }
 
     public bool Delete(int id)
     {
-        var existing = _db.Set<Tasks>().Find(id);
-        if (existing == null) return false;
-        _db.Set<Tasks>().Remove(existing);
+        var e = _db.Set<Tasks>().Find(id);
+        if (e == null) return false;
+        _db.Set<Tasks>().Remove(e);
         _db.SaveChanges();
         return true;
     }
+
+    public Tasks? GetByName(string name) =>
+        _db.Set<Tasks>().FirstOrDefault(t => t.Name == name);
 }
