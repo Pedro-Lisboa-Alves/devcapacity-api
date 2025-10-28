@@ -3,7 +3,8 @@ namespace DevCapacityApi.DTOs;
 public class CreateUpdateEngineerCalendarDayDto
 {
     public DateTime Date { get; set; }
-    public string? Type { get; set; } // "Available" | "Vacations" | "Absence"
+    public string? Type { get; set; } // "Available" | "Vacations" | "Absence" | "Assigned"
+    // note: clients should not set AssignmentId; server manages it
 }
 
 public class CreateUpdateEngineerCalendarDto

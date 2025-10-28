@@ -59,12 +59,8 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
                 return Task.CompletedTask;
             }
 
-            // log engineer name
-            var engLog = $"EngineerId: {engineer.Id}; Name: {engineer.Name}";
-            _logger.LogInformation(engLog);
-            Console.WriteLine(engLog);
+            Console.WriteLine($"EngineerId: {engineer.Id}; Name: {engineer.Name}");
 
-            // compute how many PDs need assignment
             var toAssign = task.UnassignedPDs;
             if (toAssign <= 0)
             {
@@ -74,9 +70,8 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
                 return Task.CompletedTask;
             }
 
-            // get engineer calendar
             var calendar = _engineerCalendarRepo.GetByEngineerId(engineer.Id);
-            if (calendar == null || (calendar.CalendarDays == null && calendar.CalendarDays == null))
+            if (calendar == null || calendar.CalendarDays == null)
             {
                 var msg = $"No calendar found for EngineerId={engineer.Id}";
                 _logger.LogWarning(msg);
@@ -84,21 +79,14 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
                 return Task.CompletedTask;
             }
 
-            // unify days collection name (support both Vacations or CalendarDays)
-            var days = (calendar.CalendarDays as IList<EngineerCalendarDay>) ??
-                       (calendar.CalendarDays as IList<EngineerCalendarDay>) ??
-                       calendar.CalendarDays?.ToList();
-
-            if (days == null)
+            // Ensure AssignmentId is null for days that are not Assigned
+            foreach (var d in calendar.CalendarDays)
             {
-                var msg = $"No calendar days for EngineerId={engineer.Id}";
-                _logger.LogWarning(msg);
-                Console.WriteLine(msg);
-                return Task.CompletedTask;
+                if (d.Type != EngineerCalendarDayType.Assigned && d.AssignmentId != null)
+                    d.AssignmentId = null;
             }
 
-            // find available days from task.StartDate forward
-            var availableDays = days
+            var availableDays = calendar.CalendarDays
                 .Where(d => d.Type == EngineerCalendarDayType.Available && d.Date.Date >= task.StartDate.Date)
                 .OrderBy(d => d.Date)
                 .ToList();
@@ -114,11 +102,19 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
             var assignedCount = 0;
             DateTime? lastAssignedDate = null;
 
+            // try to find persisted assignment (prefer persisted record)
+            var persistedAssignment = _assignmentRepo.GetById(assignment.AssignmentId)
+                                      ?? _assignmentRepo.GetByEngineerId(assignment.EngineerId)
+                                                         .FirstOrDefault(a => a.TaskId == assignment.TaskId);
+
+            // assign days up to toAssign, mark Type and AssignmentId
             foreach (var day in availableDays)
             {
                 if (toAssign <= 0) break;
 
                 day.Type = EngineerCalendarDayType.Assigned;
+                // only set AssignmentId when Type == Assigned
+                day.AssignmentId = persistedAssignment?.AssignmentId ?? assignment.AssignmentId;
                 toAssign--;
                 assignedCount++;
                 lastAssignedDate = day.Date.Date;
@@ -126,61 +122,39 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
 
             if (assignedCount > 0)
             {
-                // persist calendar changes
+                // persist calendar changes (repo must persist AssignmentId)
                 var calendarUpdated = _engineerCalendarRepo.Update(calendar);
-                var msg = $"Assigned {assignedCount} day(s) to EngineerId={engineer.Id} for TaskId={task.TaskId}. Calendar update success: {calendarUpdated}";
-                _logger.LogInformation(msg);
-                Console.WriteLine(msg);
+                Console.WriteLine($"Assigned {assignedCount} day(s) to EngineerId={engineer.Id} for TaskId={task.TaskId}. Calendar update success: {calendarUpdated}");
 
-                // update task end date if extended
+                // extend task end date if needed
                 if (lastAssignedDate.HasValue && lastAssignedDate.Value.Date > task.EndDate.Date)
                 {
                     var oldEnd = task.EndDate;
                     task.EndDate = lastAssignedDate.Value.Date;
                     var taskUpdated = _tasksRepo.Update(task);
-                    var updateMsg = $"TaskId={task.TaskId} EndDate updated from {oldEnd:yyyy-MM-dd} to {task.EndDate:yyyy-MM-dd}. Update success: {taskUpdated}";
-                    _logger.LogInformation(updateMsg);
-                    Console.WriteLine(updateMsg);
+                    Console.WriteLine($"TaskId={task.TaskId} EndDate updated from {oldEnd:yyyy-MM-dd} to {task.EndDate:yyyy-MM-dd}. Update success: {taskUpdated}");
                 }
 
-                // update the EngineerAssignment CapacityShare to the number of PDs allocated
-                try
+                // update the persisted EngineerAssignment CapacityShare and dates
+                if (persistedAssignment != null)
                 {
-                    // try to load the persisted assignment entity
-                    var persisted = _assignmentRepo.GetById(assignment.AssignmentId) ?? _assignmentRepo
-                        .GetByEngineerId(assignment.EngineerId)
-                        .FirstOrDefault(a => a.TaskId == assignment.TaskId);
+                    persistedAssignment.CapacityShare = assignedCount;
+                    persistedAssignment.StartDate = persistedAssignment.StartDate == default ? task.StartDate : persistedAssignment.StartDate;
+                    persistedAssignment.EndDate = lastAssignedDate.HasValue && lastAssignedDate.Value.Date > persistedAssignment.EndDate.Date
+                        ? lastAssignedDate.Value.Date
+                        : persistedAssignment.EndDate;
 
-                    if (persisted != null)
-                    {
-                        persisted.CapacityShare = assignedCount;
-                        // also update StartDate/EndDate if desired (optional)
-                        persisted.StartDate = persisted.StartDate == default ? task.StartDate : persisted.StartDate;
-                        persisted.EndDate = lastAssignedDate.HasValue && lastAssignedDate.Value.Date > persisted.EndDate.Date ? lastAssignedDate.Value.Date : persisted.EndDate;
-
-                        var assignUpdated = _assignmentRepo.Update(persisted);
-                        var assignMsg = $"EngineerAssignmentId={persisted.AssignmentId} CapacityShare updated to {persisted.CapacityShare}. Update success: {assignUpdated}";
-                        _logger.LogInformation(assignMsg);
-                        Console.WriteLine(assignMsg);
-                    }
-                    else
-                    {
-                        var warn = $"Could not find persisted EngineerAssignment for AssignmentId={assignment.AssignmentId} to update CapacityShare.";
-                        _logger.LogWarning(warn);
-                        Console.WriteLine(warn);
-                    }
+                    var assignUpdated = _assignmentRepo.Update(persistedAssignment);
+                    Console.WriteLine($"EngineerAssignmentId={persistedAssignment.AssignmentId} CapacityShare updated to {persistedAssignment.CapacityShare}. Update success: {assignUpdated}");
                 }
-                catch (Exception exAssign)
+                else
                 {
-                    _logger.LogError(exAssign, "Error updating EngineerAssignment CapacityShare for AssignmentId {AssignmentId}", assignment.AssignmentId);
-                    Console.WriteLine($"Error updating assignment CapacityShare: {exAssign.Message}");
+                    Console.WriteLine($"Warning: no persisted assignment found for AssignmentId={assignment.AssignmentId}; CapacityShare not updated.");
                 }
             }
             else
             {
-                var msg = $"No days were assigned for EngineerId={engineer.Id} TaskId={task.TaskId}";
-                _logger.LogInformation(msg);
-                Console.WriteLine(msg);
+                Console.WriteLine($"No days were assigned for EngineerId={engineer.Id} TaskId={task.TaskId}");
             }
         }
         catch (Exception ex)

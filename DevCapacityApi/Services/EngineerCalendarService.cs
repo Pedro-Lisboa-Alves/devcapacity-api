@@ -81,7 +81,8 @@ public class EngineerCalendarService : IEngineerCalendarService
             {
                 Id = v.Id,
                 Date = v.Date,
-                Type = v.Type.ToString()
+                Type = v.Type.ToString(),
+                AssignmentId = v.AssignmentId
             }) ?? Enumerable.Empty<EngineerCalendarDayDto>()
         };
 

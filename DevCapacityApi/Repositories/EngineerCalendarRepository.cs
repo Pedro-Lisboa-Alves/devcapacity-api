@@ -32,9 +32,16 @@ public class EngineerCalendarRepository : IEngineerCalendarRepository
         var existing = _db.Set<EngineerCalendar>().Include(x => x.CalendarDays).FirstOrDefault(x => x.EngineerCalendarId == c.EngineerCalendarId);
         if (existing == null) return false;
 
-        // replace vacation/day entries
+        // remove existing days
         _db.Set<EngineerCalendarDay>().RemoveRange(existing.CalendarDays);
         _db.SaveChanges();
+
+        // ensure AssignmentId nullified unless day.Type == Assigned
+        foreach (var d in c.CalendarDays ?? Enumerable.Empty<EngineerCalendarDay>())
+        {
+            if (d.Type != EngineerCalendarDayType.Assigned)
+                d.AssignmentId = null;
+        }
 
         // attach new days
         existing.CalendarDays = c.CalendarDays;
