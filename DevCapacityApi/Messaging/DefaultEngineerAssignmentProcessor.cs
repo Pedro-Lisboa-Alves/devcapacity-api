@@ -46,7 +46,8 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
             switch ((operation ?? string.Empty).ToLowerInvariant())
             {
                 case "created":
-                    HandleCreatedAssignment(assignment);
+                    //HandleCreatedAssignment(assignment);
+                    HandleCreatedAssignmentWithRebalance(assignment);
                     break;
                 case "deleted":
                     HandleDeletedAssignment(assignment);
@@ -224,5 +225,191 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
         }
 
         Console.WriteLine($"Cleared assignment references in calendar for EngineerId={assignment.EngineerId}. Any day updated: {anyUpdated}");
+    }
+
+    // New: rebalance all assignments for the task using the received assignment as trigger.
+    // Strategy:
+    // 1) load all assignments for the task
+    // 2) clear any calendar days currently assigned to these assignments (set Available + AssignmentId=null)
+    // 3) collect all available days (Type == Available) from task.StartDate onward across involved engineers
+    // 4) iterate days in chronological order and assign them to the assignment that belongs to that day.engineer
+    //    (if engineer has multiple assignments, assign to the first one found)
+    // 5) persist only modified days and update CapacityShare on each affected assignment
+    private void HandleCreatedAssignmentWithRebalance(EngineerAssignment triggerAssignment)
+    {
+        var task = _tasksRepo.GetById(triggerAssignment.TaskId);
+        if (task == null)
+        {
+            _logger.LogWarning("Rebalance: Task not found for TaskId={TaskId}", triggerAssignment.TaskId);
+            Console.WriteLine($"Rebalance: Task not found for TaskId={triggerAssignment.TaskId}");
+            return;
+        }
+
+        var allAssignments = _assignmentRepo.GetByTaskId(task.TaskId)?.ToList();
+        if (allAssignments == null || !allAssignments.Any())
+        {
+            _logger.LogInformation("Rebalance: No assignments found for TaskId={TaskId}", task.TaskId);
+            return;
+        }
+
+        // group assignments by engineer
+        var assignmentsByEngineer = allAssignments
+            .GroupBy(a => a.EngineerId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var assignmentIds = new HashSet<int>(allAssignments.Select(a => a.AssignmentId));
+
+        // 1) Clear existing calendar day links for this task's assignments across all involved engineers
+        var clearedDays = new List<EngineerCalendarDay>();
+        foreach (var engId in assignmentsByEngineer.Keys)
+        {
+            var calendar = _engineerCalendarRepo.GetByEngineerId(engId);
+            if (calendar == null) continue;
+
+            var daysColl = (calendar.CalendarDays as IEnumerable<EngineerCalendarDay>) ?? (calendar.CalendarDays as IEnumerable<EngineerCalendarDay>) ?? Enumerable.Empty<EngineerCalendarDay>();
+
+            var toClear = daysColl.Where(dd => dd.AssignmentId.HasValue && assignmentIds.Contains(dd.AssignmentId.Value)).ToList();
+            foreach (var d in toClear)
+            {
+                d.AssignmentId = null;
+                d.Type = EngineerCalendarDayType.Available;
+                clearedDays.Add(d);
+            }
+        }
+
+        // persist cleared days individually
+        foreach (var d in clearedDays)
+        {
+            _engineerCalendarRepo.UpdateDay(d);
+        }
+
+        // 2) collect all available days from task.StartDate onward across involved engineers
+        var candidateDays = new List<(DateTime Date, int EngineerId, EngineerCalendarDay Day)>();
+        foreach (var engId in assignmentsByEngineer.Keys)
+        {
+            var calendar = _engineerCalendarRepo.GetByEngineerId(engId);
+            if (calendar == null) continue;
+
+            var daysColl = (calendar.CalendarDays as IEnumerable<EngineerCalendarDay>) ?? (calendar.CalendarDays as IEnumerable<EngineerCalendarDay>) ?? Enumerable.Empty<EngineerCalendarDay>();
+
+            var avail = daysColl
+                .Where(dd => dd.Type == EngineerCalendarDayType.Available && dd.Date.Date >= task.StartDate.Date)
+                .Select(dd => (Date: dd.Date.Date, EngineerId: engId, Day: dd));
+
+            candidateDays.AddRange(avail);
+        }
+
+        if (!candidateDays.Any())
+        {
+            _logger.LogInformation("Rebalance: No available days from {Start} for TaskId={TaskId}", task.StartDate.Date, task.TaskId);
+            Console.WriteLine($"Rebalance: No available days from {task.StartDate:yyyy-MM-dd} for TaskId={task.TaskId}");
+            return;
+        }
+
+        // sort by date so earliest days are used first
+        candidateDays = candidateDays.OrderBy(t => t.Date).ToList();
+
+        // remaining PDs to allocate = total PDs of the task
+        var remaining = task.PDs;
+
+        // counters
+        var assignedCountsByAssignment = allAssignments.ToDictionary(a => a.AssignmentId, a => 0);
+        var assignedCountsByEngineer = assignmentsByEngineer.Keys.ToDictionary(eid => eid, eid => 0);
+
+        var modifiedDays = new List<EngineerCalendarDay>();
+
+        // process days by date groups to allow multiple assignments on same date across different engineers
+        var groupedByDate = candidateDays.GroupBy(x => x.Date).OrderBy(g => g.Key);
+        foreach (var dateGroup in groupedByDate)
+        {
+            if (remaining <= 0) break;
+
+            // list of available engineers for this date
+            var entries = dateGroup.Select(x => (EngineerId: x.EngineerId, Day: x.Day)).ToList();
+
+            // while there are free PDs and available engineers on this date
+            while (remaining > 0 && entries.Any())
+            {
+                // choose engineer with smallest assigned count so far among available ones (balance)
+                var chosenEngineer = entries
+                    .Select(e => e.EngineerId)
+                    .Distinct()
+                    .OrderBy(eid => assignedCountsByEngineer.ContainsKey(eid) ? assignedCountsByEngineer[eid] : 0)
+                    .ThenBy(eid => eid)
+                    .FirstOrDefault();
+
+                if (chosenEngineer == 0 && !assignedCountsByEngineer.ContainsKey(0)) break; // safety
+
+                // pick an available entry for that engineer for this date
+                var entryIndex = entries.FindIndex(e => e.EngineerId == chosenEngineer);
+                if (entryIndex < 0) break;
+
+                var chosenEntry = entries[entryIndex];
+                // pick target assignment for this engineer: the assignment with least assigned so far
+                var engAssignments = assignmentsByEngineer[chosenEngineer];
+                var targetAssignment = engAssignments
+                    .OrderBy(a => assignedCountsByAssignment.ContainsKey(a.AssignmentId) ? assignedCountsByAssignment[a.AssignmentId] : 0)
+                    .First();
+
+                // assign the day
+                chosenEntry.Day.Type = EngineerCalendarDayType.Assigned;
+                chosenEntry.Day.AssignmentId = targetAssignment.AssignmentId;
+
+                // update counters
+                assignedCountsByAssignment[targetAssignment.AssignmentId] = assignedCountsByAssignment[targetAssignment.AssignmentId] + 1;
+                assignedCountsByEngineer[chosenEngineer] = assignedCountsByEngineer[chosenEngineer] + 1;
+                remaining--;
+
+                modifiedDays.Add(chosenEntry.Day);
+
+                // remove this entry so we don't assign same day twice
+                entries.RemoveAt(entryIndex);
+            }
+        }
+
+        // persist modified days
+        foreach (var d in modifiedDays)
+        {
+            _engineerCalendarRepo.UpdateDay(d);
+        }
+
+        var lastAssignedDate = modifiedDays.Any() ? modifiedDays.Max(d => d.Date) : (DateTime?)null;
+
+        // update assignments CapacityShare and dates
+        foreach (var a in allAssignments)
+        {
+            assignedCountsByAssignment.TryGetValue(a.AssignmentId, out var count);
+
+            // update persisted assignment if changed
+            var needUpdate = a.CapacityShare != count;
+            if (!needUpdate && lastAssignedDate.HasValue)
+            {
+                var currentEnd = a.EndDate == default ? DateTime.MinValue : a.EndDate.Date;
+                if (lastAssignedDate.Value.Date > currentEnd) needUpdate = true;
+            }
+
+            if (needUpdate)
+            {
+                a.CapacityShare = count;
+                a.StartDate = a.StartDate == default ? task.StartDate : a.StartDate;
+                a.EndDate = lastAssignedDate.HasValue && lastAssignedDate.Value.Date > (a.EndDate == default ? DateTime.MinValue : a.EndDate.Date)
+                    ? lastAssignedDate.Value.Date
+                    : a.EndDate;
+
+                _assignmentRepo.Update(a);
+            }
+        }
+
+        // update task end date if extended
+        if (lastAssignedDate.HasValue && lastAssignedDate.Value.Date > task.EndDate.Date)
+        {
+            var oldEnd = task.EndDate;
+            task.EndDate = lastAssignedDate.Value.Date;
+            _tasksRepo.Update(task);
+            Console.WriteLine($"Rebalance: TaskId={task.TaskId} EndDate updated from {oldEnd:yyyy-MM-dd} to {task.EndDate:yyyy-MM-dd}");
+        }
+
+        _logger.LogInformation("Rebalance completed for TaskId={TaskId}. Remaining PDs unallocated: {Remaining}", task.TaskId, remaining);
+        Console.WriteLine($"Rebalance completed for TaskId={task.TaskId}. Remaining PDs unallocated: {remaining}");
     }
 }
