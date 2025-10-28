@@ -32,20 +32,47 @@ public class EngineerCalendarRepository : IEngineerCalendarRepository
         var existing = _db.Set<EngineerCalendar>().Include(x => x.CalendarDays).FirstOrDefault(x => x.EngineerCalendarId == c.EngineerCalendarId);
         if (existing == null) return false;
 
-        // remove existing days
+        // remove existing days (keeps previous behaviour for full replace)
         _db.Set<EngineerCalendarDay>().RemoveRange(existing.CalendarDays);
         _db.SaveChanges();
 
-        // ensure AssignmentId nullified unless day.Type == Assigned
         foreach (var d in c.CalendarDays ?? Enumerable.Empty<EngineerCalendarDay>())
         {
             if (d.Type != EngineerCalendarDayType.Assigned)
                 d.AssignmentId = null;
         }
 
-        // attach new days
         existing.CalendarDays = c.CalendarDays;
         _db.Update(existing);
+        _db.SaveChanges();
+        return true;
+    }
+
+    // new: update/insert a single calendar day without removing other days
+    public bool UpdateDay(EngineerCalendarDay day)
+    {
+        if (day == null) return false;
+
+        if (day.Id > 0)
+        {
+            var existingDay = _db.Set<EngineerCalendarDay>().FirstOrDefault(d => d.Id == day.Id);
+            if (existingDay == null) return false;
+
+            existingDay.Type = day.Type;
+            // only persist AssignmentId when Type == Assigned
+            existingDay.AssignmentId = day.Type == EngineerCalendarDayType.Assigned ? day.AssignmentId : null;
+            existingDay.Date = day.Date;
+            _db.Update(existingDay);
+        }
+        else
+        {
+            // new day: ensure AssignmentId only if Assigned
+            if (day.Type != EngineerCalendarDayType.Assigned)
+                day.AssignmentId = null;
+
+            _db.Set<EngineerCalendarDay>().Add(day);
+        }
+
         _db.SaveChanges();
         return true;
     }

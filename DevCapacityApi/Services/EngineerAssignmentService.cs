@@ -62,7 +62,7 @@ public class EngineerAssignmentService : IEngineerAssignmentService
         var created = _repo.Add(entity);
 
         // enviar evento Avro para Kafka (fire-and-forget via Task)
-        _ = _producer.ProduceAssignmentAsync(created, "created");
+        _producer.ProduceAssignmentAsync(created, "created");
 
         return MapToDto(created);
     }
