@@ -1,0 +1,14 @@
+# Please refer https://aka.ms/HTTPSinContainer on how to setup an https developer certificate for your ASP.NET Core service.
+
+services:
+  devcapacityapi:
+    image: devcapacityapi
+    build:
+      context: .
+      dockerfile: DevCapacityApi/Dockerfile
+    ports:
+      - "5151:5151"
+    environment:
+      - Kafka__BootstrapServers=kafka:9093
+    depends_on:
+      - kafka
