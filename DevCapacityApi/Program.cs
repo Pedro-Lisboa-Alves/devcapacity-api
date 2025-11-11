@@ -45,52 +45,63 @@ builder.Services.AddScoped<IEngineerCalendarRepository, EngineerCalendarReposito
 builder.Services.AddScoped<IEngineerCalendarService, EngineerCalendarService>();
 
 // Kafka / Schema Registry configuration and producer registration
-builder.Services.AddSingleton(sp =>
+var kafkaEnabled = builder.Configuration.GetValue<bool>("Kafka:Enabled", false);
+
+if (kafkaEnabled)
 {
-    return new ProducerConfig
+    builder.Services.AddSingleton(sp =>
     {
-        BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092"
-    };
-});
+        return new ProducerConfig
+        {
+            BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092"
+        };
+    });
 
-// MANTER apenas UM registo de SchemaRegistryConfig
-builder.Services.AddSingleton(sp => new SchemaRegistryConfig
+    // single SchemaRegistryConfig
+    builder.Services.AddSingleton(sp => new SchemaRegistryConfig
+    {
+        Url = builder.Configuration["SchemaRegistry:Url"] ?? "http://localhost:8081"
+    });
+
+    var assignmentTopic = builder.Configuration["Kafka:AssignmentTopic"] ?? "engineer-assignment-events";
+
+    builder.Services.AddSingleton<IKafkaAssignmentProducer>(sp =>
+    {
+        var prodCfg = sp.GetRequiredService<ProducerConfig>();
+        var regCfg = sp.GetRequiredService<SchemaRegistryConfig>();
+        return new KafkaAssignmentProducer(prodCfg, regCfg, assignmentTopic);
+    });
+
+    // Kafka consumer config
+    builder.Services.AddSingleton(sp => new ConsumerConfig
+    {
+        BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092",
+        GroupId = builder.Configuration["Kafka:AssignmentConsumerGroup"] ?? "assignment-consumer-group",
+        AutoOffsetReset = AutoOffsetReset.Earliest,
+        EnableAutoCommit = false
+    });
+
+    // register processor implementation
+    builder.Services.AddScoped<IEngineerAssignmentProcessor, DefaultEngineerAssignmentProcessor>();
+
+    // register background consumer as hosted service
+    builder.Services.AddSingleton<IHostedService>(sp =>
+       new KafkaAssignmentConsumer(
+            sp.GetRequiredService<ConsumerConfig>(),
+            sp.GetRequiredService<SchemaRegistryConfig>(),
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<ILogger<KafkaAssignmentConsumer>>(),
+            assignmentTopic
+        )
+    );
+}
+else
 {
-    Url = builder.Configuration["SchemaRegistry:Url"] ?? "http://localhost:8081"
-});
-
-var assignmentTopic = builder.Configuration["Kafka:AssignmentTopic"] ?? "engineer-assignment-events";
-
-builder.Services.AddSingleton<IKafkaAssignmentProducer>(sp =>
-{
-    var prodCfg = sp.GetRequiredService<ProducerConfig>();
-    var regCfg = sp.GetRequiredService<SchemaRegistryConfig>();
-    return new KafkaAssignmentProducer(prodCfg, regCfg, assignmentTopic);
-});
-
-// Kafka consumer config
-builder.Services.AddSingleton(sp => new ConsumerConfig
-{
-    BootstrapServers = builder.Configuration["Kafka:BootstrapServers"] ?? "localhost:9092",
-    GroupId = builder.Configuration["Kafka:AssignmentConsumerGroup"] ?? "assignment-consumer-group",
-    AutoOffsetReset = AutoOffsetReset.Earliest,
-    EnableAutoCommit = false
-});
-
-// register processor implementation
-builder.Services.AddScoped<IEngineerAssignmentProcessor, DefaultEngineerAssignmentProcessor>();
-
-
-// register background consumer
-builder.Services.AddSingleton<IHostedService>(sp =>
-   new KafkaAssignmentConsumer(
-        sp.GetRequiredService<ConsumerConfig>(),
-        sp.GetRequiredService<SchemaRegistryConfig>(),
-        sp.GetRequiredService<IServiceScopeFactory>(),
-        sp.GetRequiredService<ILogger<KafkaAssignmentConsumer>>(),
-        assignmentTopic // <- vem do appsettings
-    )
-);
+    // optional: register a no-op processor so DI still resolves interfaces if needed
+    builder.Services.AddScoped<IEngineerAssignmentProcessor, DefaultEngineerAssignmentProcessor>();
+    var logger = builder.Logging;
+    // no hosted Kafka consumer registered when disabled
+}
 
 var app = builder.Build();
 

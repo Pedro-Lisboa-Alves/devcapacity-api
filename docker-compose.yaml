@@ -6,9 +6,12 @@ services:
     build:
       context: .
       dockerfile: DevCapacityApi/Dockerfile
-    ports:
-      - "5151:5151"
     environment:
       - Kafka__BootstrapServers=kafka:9093
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Production
     depends_on:
       - kafka
+    ports:
+      - "5152:5152"
+    

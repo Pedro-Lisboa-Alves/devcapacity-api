@@ -380,7 +380,7 @@ public class DefaultEngineerAssignmentProcessor : IEngineerAssignmentProcessor
         {
             assignedCountsByAssignment.TryGetValue(a.AssignmentId, out var count);
 
-            // update persisted assignment if changed
+            // update persisted assignment if changed --- 
             var needUpdate = a.CapacityShare != count;
             if (!needUpdate && lastAssignedDate.HasValue)
             {
