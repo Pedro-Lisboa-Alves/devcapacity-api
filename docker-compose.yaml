@@ -1,17 +1,40 @@
-# Please refer https://aka.ms/HTTPSinContainer on how to setup an https developer certificate for your ASP.NET Core service.
-
 services:
   devcapacityapi:
     image: devcapacityapi
     build:
       context: .
       dockerfile: DevCapacityApi/Dockerfile
+
+    user: "0"
+    entrypoint: ["/bin/sh","-lc","chown -R app:root /data || true; exec su app -s /bin/sh -c \"dotnet DevCapacityApi.dll\""]
+
     environment:
-      - Kafka__BootstrapServers=kafka:9093
-      - ASPNETCORE_URLS=http://+:8080
-      - ASPNETCORE_ENVIRONMENT=Production
-    depends_on:
-      - kafka
+      ASPNETCORE_URLS: "http://+:5152"
+      ASPNETCORE_ENVIRONMENT: "Production"
+
+      # Active Kafka usage in the app
+      KAFKA__ENABLED: "true"
+      # Use the broker hostname on the Docker network (não localhost)
+      KAFKA__BOOTSTRAPSERVERS: "kafka:9093"
+      # opcional: topic e group
+      KAFKA__ASSIGNMENTTOPIC: "engineer-assignment-events"
+      KAFKA__ASSIGNMENTCONSUMERGROUP: "assignment-consumer-group"
+
+      # connection string SQLite para o ficheiro no volume /data
+      ConnectionStrings__DefaultConnection: "Data Source=/data/devcapacity.db;Mode=ReadWriteCreate;Cache=Shared"
+
     ports:
       - "5152:5152"
-    
+
+    volumes:
+      - appdata:/data
+
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    external: true
+
+volumes:
+  appdata:
