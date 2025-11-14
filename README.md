@@ -81,3 +81,7 @@ Notes:
 - Follow project coding standards.
 - Add unit tests under Services/Repositories as appropriate.
 - Run migrations and ensure DB model compatibility before pushing.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
